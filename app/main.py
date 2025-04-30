@@ -17,75 +17,75 @@ Base.metadata.create_all(bind=engine)
 
 #MCP stuff
 # 1) TCP handler for MCP
-async def handle_mcp(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-    data = await reader.read(1024)
-    try:
-        req = json.loads(data.decode())
-        nights = int(req.get("nights", 0))
-    except (ValueError, TypeError, json.JSONDecodeError):
-        resp = {"error": "invalid request format"}
-    else:
-        db: Session = SessionLocal()
-        trips = (
-            db.query(Trip)
-              .filter(Trip.duration_nights == nights)
-              .all()
-        )
-        resp = [
-            {
-                "id": t.id,
-                "region": t.region,
-                "name": t.name,
-                "duration_nights": t.duration_nights,
-                "days": [
-                    {
-                        "day_number": d.day_number,
-                        "date": d.date,
-                        "accommodations": [
-                            {"name": a.name, "location": a.location}
-                            for a in d.accommodations
-                        ],
-                        "transfers": [
-                            {
-                                "mode": tr.mode,
-                                "from_location": tr.from_location,
-                                "to_location": tr.to_location,
-                            }
-                            for tr in d.transfers
-                        ],
-                        "activities": [
-                            {"name": ac.name, "description": ac.description}
-                            for ac in d.activities
-                        ],
-                    }
-                    for d in t.days
-                ],
-            }
-            for t in trips
-        ]
-        db.close()
+# async def handle_mcp(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+#     data = await reader.read(1024)
+#     try:
+#         req = json.loads(data.decode())
+#         nights = int(req.get("nights", 0))
+#     except (ValueError, TypeError, json.JSONDecodeError):
+#         resp = {"error": "invalid request format"}
+#     else:
+#         db: Session = SessionLocal()
+#         trips = (
+#             db.query(Trip)
+#               .filter(Trip.duration_nights == nights)
+#               .all()
+#         )
+#         resp = [
+#             {
+#                 "id": t.id,
+#                 "region": t.region,
+#                 "name": t.name,
+#                 "duration_nights": t.duration_nights,
+#                 "days": [
+#                     {
+#                         "day_number": d.day_number,
+#                         "date": d.date,
+#                         "accommodations": [
+#                             {"name": a.name, "location": a.location}
+#                             for a in d.accommodations
+#                         ],
+#                         "transfers": [
+#                             {
+#                                 "mode": tr.mode,
+#                                 "from_location": tr.from_location,
+#                                 "to_location": tr.to_location,
+#                             }
+#                             for tr in d.transfers
+#                         ],
+#                         "activities": [
+#                             {"name": ac.name, "description": ac.description}
+#                             for ac in d.activities
+#                         ],
+#                     }
+#                     for d in t.days
+#                 ],
+#             }
+#             for t in trips
+#         ]
+#         db.close()
 
-    writer.write(json.dumps(resp).encode())
-    await writer.drain()
-    writer.close()
+#     writer.write(json.dumps(resp).encode())
+#     await writer.drain()
+#     writer.close()
 
-# 2) Lifespan context to manage TCP server lifecycle
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # startup: bind and start listening
-    server = await asyncio.start_server(handle_mcp, host="0.0.0.0", port=9000)
-    # schedule serve_forever so it doesn't block FastAPI's event loop
-    serve_task = asyncio.create_task(server.serve_forever())
-    yield  # here FastAPI will start serving HTTP
-    # shutdown: close the TCP server
-    server.close()
-    await server.wait_closed()
-    serve_task.cancel()
+# # 2) Lifespan context to manage TCP server lifecycle
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # startup: bind and start listening
+#     server = await asyncio.start_server(handle_mcp, host="0.0.0.0", port=9000)
+#     # schedule serve_forever so it doesn't block FastAPI's event loop
+#     serve_task = asyncio.create_task(server.serve_forever())
+#     yield  # here FastAPI will start serving HTTP
+#     # shutdown: close the TCP server
+#     server.close()
+#     await server.wait_closed()
+#     serve_task.cancel()
 
 
 # 3) Create FastAPI app with lifespan
-app = FastAPI(lifespan=lifespan)
-
+app = FastAPI()
+# app = FastAPI(lifespan=lifespan)
 
 # Dependency to get DB session
 def get_db():
